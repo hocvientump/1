@@ -11,6 +11,30 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
+<!-- Firebase (compat) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script>
+    // Firebase config provided by user
+    const firebaseConfig = {
+        apiKey: "AIzaSyC-R1iGyb_YkRRTR3J2R2EqTPGLf09_Bqg",
+        authDomain: "lab1-fac84.firebaseapp.com",
+        projectId: "lab1-fac84",
+        storageBucket: "lab1-fac84.firebasestorage.app",
+        messagingSenderId: "18384394433",
+        appId: "1:18384394433:web:386b8d026cf817f19e5c40",
+        measurementId: "G-H3N4YLMZPP"
+    };
+
+    try{
+        firebase.initializeApp(firebaseConfig);
+        window.firestoreDB = firebase.firestore();
+        console.info('Firebase initialized');
+    }catch(e){
+        console.warn('Firebase init failed', e);
+    }
+</script>
+
 <style>
 
 body{
@@ -490,60 +514,7 @@ viewer / 123456
 
 <div class="toast-box" id="toastBox"></div>
 
-<script type="module">
-
-import { initializeApp }
-
-from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-
-import {
-
-    getAuth,
-    signInWithEmailAndPassword,
-    onAuthStateChanged,
-    signOut
-
-}
-
-from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
-
-import {
-
-    getFirestore,
-    doc,
-    setDoc,
-    getDoc,
-    onSnapshot
-
-}
-
-from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
-
-/* FIREBASE */
-
-const firebaseConfig = {
-
-    apiKey: "AIzaSyC-R1iGyb_YkRRTR3J2R2EqTPGLf09_Bqg",
-
-    authDomain: "lab1-fac84.firebaseapp.com",
-
-    projectId: "lab1-fac84",
-
-    storageBucket: "lab1-fac84.firebasestorage.app",
-
-    messagingSenderId: "18384394433",
-
-    appId: "1:18384394433:web:386b8d026cf817f19e5c40",
-
-    measurementId: "G-H3N4YLMZPP"
-
-};
-
-const app = initializeApp(firebaseConfig);
-
-const auth = getAuth(app);
-
-const db = getFirestore(app);
+<script>
 
 const CONFIG = {
     STORAGE_KEY:'LAB_SCHEDULE_DATA',
@@ -623,72 +594,49 @@ const AuthModule = {
         }
     ],
 
-    async login(){
+    login(){
 
-        const username =
-        document.getElementById('username').value;
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
 
-        const password =
-        document.getElementById('password').value;
+        const user = this.accounts.find(acc=>
+            acc.username === username &&
+            acc.password === password
+        );
 
-        const email =
-        username === 'admin'
-        ? 'admin@gmail.com'
-        : 'viewer@gmail.com';
-
-        try{
-
-            await signInWithEmailAndPassword(
-                auth,
-                email,
-                password
-            );
-
-        }catch(err){
-
-            NotificationModule.error(
-                'Sai tài khoản'
-            );
-
+        if(!user){
+            NotificationModule.error('Sai tài khoản');
+            return;
         }
+
+        this.currentUser = user;
+
+        localStorage.setItem(
+            CONFIG.USER_KEY,
+            JSON.stringify(user)
+        );
+
+        document.getElementById('loginModal').classList.add('hidden');
+
+        this.updatePermission();
+
+        NotificationModule.success('Đăng nhập thành công');
 
     },
 
     checkLogin(){
 
-        onAuthStateChanged(auth,(user)=>{
+        const user = localStorage.getItem(CONFIG.USER_KEY);
 
-            if(user){
+        if(user){
 
-                if(user.email === 'admin@gmail.com'){
+            this.currentUser = JSON.parse(user);
 
-                    this.currentUser = {
+            document.getElementById('loginModal').classList.add('hidden');
 
-                        username:'admin',
-                        role:'admin'
+        }
 
-                    };
-
-                }else{
-
-                    this.currentUser = {
-
-                        username:'viewer',
-                        role:'viewer'
-
-                    };
-
-                }
-
-                document
-                .getElementById('loginModal')
-                .classList.add('hidden');
-
-                this.updatePermission();
-
-            }
-
-        });
+        this.updatePermission();
 
     },
 
@@ -716,9 +664,9 @@ const AuthModule = {
 
     },
 
-    async logout(){
+    logout(){
 
-        await signOut(auth);
+        localStorage.removeItem(CONFIG.USER_KEY);
 
         location.reload();
 
@@ -730,78 +678,59 @@ const StorageModule = {
 
     async save(){
 
-        await setDoc(
+        const payload = {
+            schedules: DataModule.schedules,
+            leaves: DataModule.leaves
+        };
 
-            doc(db,'lab','schedule'),
-
-            {
-
-                schedules:
-                DataModule.schedules,
-
-                leaves:
-                DataModule.leaves
-
+        if(window.firestoreDB){
+            try{
+                await window.firestoreDB.collection('lab').doc('data').set(payload);
+                NotificationModule.success('Đã lưu dữ liệu (Firebase)');
+                SaveStatusModule.markSaved();
+                return;
+            }catch(e){
+                console.warn('Firebase save failed, falling back to localStorage', e);
             }
+        }
 
-        );
-
-        NotificationModule.success(
-            'Đã lưu dữ liệu'
-        );
-
+        // fallback to localStorage
+        localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(payload));
+        NotificationModule.success('Đã lưu dữ liệu (local)');
         SaveStatusModule.markSaved();
 
     },
 
-    load(){
+    async load(){
 
-        onSnapshot(
-
-            doc(db,'lab','schedule'),
-
-            async(snapshot)=>{
-
-                if(snapshot.exists()){
-
-                    const data =
-                    snapshot.data();
-
-                    DataModule.schedules =
-                    data.schedules || [];
-
-                    DataModule.leaves =
-                    data.leaves || [];
-
-                }else{
-
-                    await setDoc(
-
-                        doc(db,'lab','schedule'),
-
-                        {
-
-                            schedules:
-                            DataModule.schedules,
-
-                            leaves:
-                            DataModule.leaves
-
-                        }
-
-                    );
-
+        // try Firestore first
+        if(window.firestoreDB){
+            try{
+                const docRef = window.firestoreDB.collection('lab').doc('data');
+                const snap = await docRef.get();
+                if(snap.exists){
+                    const parsed = snap.data();
+                    DataModule.schedules = parsed.schedules || DataModule.schedules;
+                    DataModule.leaves = parsed.leaves || [];
+                    return;
                 }
-
-                UIModule.renderSchedule();
-
-                DashboardModule.render();
-
-                AuthModule.updatePermission();
-
+            }catch(e){
+                console.warn('Firebase load failed, falling back to localStorage', e);
             }
+        }
 
-        );
+        // fallback to localStorage
+        const data = localStorage.getItem(CONFIG.STORAGE_KEY);
+
+        if(data){
+            const parsed = JSON.parse(data);
+            if(Array.isArray(parsed)){
+                DataModule.schedules = parsed;
+            }else{
+                DataModule.schedules = parsed.schedules || DataModule.schedules;
+                DataModule.leaves = parsed.leaves || [];
+            }
+        }
 
     }
 
@@ -1231,9 +1160,8 @@ const RealtimeModule = {
 
 };
 
-window.onload = ()=>{
-
-    StorageModule.load();
+async function initApp(){
+    await StorageModule.load();
 
     UIModule.renderSchedule();
 
@@ -1247,7 +1175,9 @@ window.onload = ()=>{
 
     SaveStatusModule.markSaved();
 
-};
+}
+
+window.addEventListener('load', initApp);
 
 </script>
 
