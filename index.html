@@ -886,8 +886,7 @@ const LeaveModule = {
 
     },
 
-    confirmLeave(){
-
+async confirmLeave(){
         const name = document.getElementById('leaveName').value;
         const day = document.getElementById('leaveDay').value;
         const shift = document.getElementById('leaveShift').value;
@@ -902,7 +901,8 @@ const LeaveModule = {
         });
 
         SaveStatusModule.markDirty();
-        StorageModule.scheduleSave();
+
+        await StorageModule.save();
 
         document.getElementById('leaveReason').value = '';
 
@@ -910,25 +910,26 @@ const LeaveModule = {
             document.getElementById('leaveModal')
         ).hide();
 
-        UIModule.renderSchedule();
-        AuthModule.updatePermission();
-
         NotificationModule.success('Đã thêm nghỉ phép');
 
     },
 
-    removeLeave(id){
+            async removeLeave(id){
 
-        DataModule.leaves = DataModule.leaves.filter(item=>item.id !== id);
+            DataModule.leaves =
+            DataModule.leaves.filter(
+                item=>item.id !== id
+            );
 
-        SaveStatusModule.markDirty();
-        StorageModule.scheduleSave();
-        UIModule.renderSchedule();
-        AuthModule.updatePermission();
+            SaveStatusModule.markDirty();
 
-        NotificationModule.success('Đã xóa nghỉ phép');
+            await StorageModule.save();
 
-    },
+            NotificationModule.success(
+                'Đã xóa nghỉ phép'
+            );
+
+        },
 
     renderLeave(){
 
