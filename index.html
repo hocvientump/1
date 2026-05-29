@@ -14,6 +14,7 @@
 <!-- Firebase (compat) -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script>
     // Firebase config provided by user
     const firebaseConfig = {
@@ -28,7 +29,9 @@
 
     try{
         firebase.initializeApp(firebaseConfig);
+
         window.firestoreDB = firebase.firestore();
+        window.firebaseAuth = firebase.auth();
         console.info('Firebase initialized');
     }catch(e){
         console.warn('Firebase init failed', e);
@@ -581,92 +584,91 @@ const AuthModule = {
 
     currentUser:null,
 
-    accounts:[
-        {
-            username:'admin',
-            password:'123456',
-            role:'admin'
-        },
-        {
-            username:'viewer',
-            password:'123456',
-            role:'viewer'
-        }
-    ],
+    async login(){
 
-    login(){
+        const email =
+            document.getElementById('username').value.trim();
 
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
+        const password =
+            document.getElementById('password').value;
 
-        const user = this.accounts.find(acc=>
-            acc.username === username &&
-            acc.password === password
-        );
+        try{
 
-        if(!user){
-            NotificationModule.error('Sai tài khoản');
-            return;
-        }
+            const result =
+                await firebaseAuth
+                    .signInWithEmailAndPassword(
+                        email,
+                        password
+                    );
 
-        this.currentUser = user;
+            const role =
+                result.user.email ===
+                'admin@gmail.com'
+                ? 'admin'
+                : 'viewer';
 
-        localStorage.setItem(
-            CONFIG.USER_KEY,
-            JSON.stringify(user)
-        );
+            this.currentUser = {
+                email: result.user.email,
+                role: role
+            };
 
-        document.getElementById('loginModal').classList.add('hidden');
+            document
+                .getElementById('loginModal')
+                .classList.add('hidden');
 
-        this.updatePermission();
+            this.updatePermission();
 
-        NotificationModule.success('Đăng nhập thành công');
-
-    },
-
-    checkLogin(){
-
-        const user = localStorage.getItem(CONFIG.USER_KEY);
-
-        if(user){
-
-            this.currentUser = JSON.parse(user);
-
-            document.getElementById('loginModal').classList.add('hidden');
+            NotificationModule.success(
+                'Đăng nhập thành công'
+            );
 
         }
+        catch(err){
 
-        this.updatePermission();
+            NotificationModule.error(
+                'Sai email hoặc mật khẩu'
+            );
+
+        }
 
     },
 
     updatePermission(){
 
-        const editable = this.currentUser?.role === 'admin';
+        const editable =
+            this.currentUser?.role === 'admin';
 
-        document.querySelectorAll('[contenteditable]').forEach(el=>{
+        document
+            .querySelectorAll('[contenteditable]')
+            .forEach(el=>{
 
-            el.contentEditable = editable;
+                el.contentEditable = editable;
 
-            if(editable){
-                el.classList.remove('readonly');
-            }else{
-                el.classList.add('readonly');
-            }
+                if(editable){
+                    el.classList.remove('readonly');
+                }
+                else{
+                    el.classList.add('readonly');
+                }
 
-        });
+            });
 
-        document.querySelectorAll('.admin-only').forEach(el=>{
+        document
+            .querySelectorAll('.admin-only')
+            .forEach(el=>{
 
-            el.style.display = editable ? '' : 'none';
+                el.style.display =
+                    editable
+                    ? ''
+                    : 'none';
 
-        });
+            });
 
     },
 
-    logout(){
+    async logout(){
 
-        localStorage.removeItem(CONFIG.USER_KEY);
+        await firebaseAuth.signOut();
 
         location.reload();
 
@@ -677,7 +679,16 @@ const AuthModule = {
 const StorageModule = {
 
     async save(){
-
+        if(
+   AuthModule.currentUser?.role
+   !== 'admin'
+){
+   NotificationModule.error(
+      'Không có quyền chỉnh sửa'
+   );
+   return;
+}
+        
         const payload = {
             schedules: DataModule.schedules,
             leaves: DataModule.leaves
@@ -1222,7 +1233,38 @@ async function initApp(){
 
     DashboardModule.render();
 
-    AuthModule.checkLogin();
+    firebaseAuth.onAuthStateChanged(user=>{
+
+    if(user){
+
+        AuthModule.currentUser = {
+
+            email:user.email,
+
+            role:
+                user.email ===
+                'admin@gmail.com'
+                ? 'admin'
+                : 'viewer'
+
+        };
+
+        document
+            .getElementById('loginModal')
+            .classList.add('hidden');
+
+        AuthModule.updatePermission();
+
+    }
+    else{
+
+        document
+            .getElementById('loginModal')
+            .classList.remove('hidden');
+
+    }
+
+});
 
     SaveStatusModule.markSaved();
 
