@@ -736,6 +736,51 @@ const StorageModule = {
 
 };
 
+const SyncModule = {
+    applyingRemote: false,
+    unsubscribe: null,
+    start(){
+        if(!window.firestoreDB) return;
+        try{
+            this.unsubscribe = window.firestoreDB.collection('lab').doc('data')
+                .onSnapshot(doc=>{
+                    if(!doc.exists) return;
+                    const data = doc.data() || {};
+                    try{
+                        this.applyingRemote = true;
+                        DataModule.schedules = data.schedules || DataModule.schedules;
+                        DataModule.leaves = data.leaves || DataModule.leaves;
+                        UIModule.renderSchedule();
+                        SaveStatusModule.markSaved();
+                        NotificationModule.success('Đã đồng bộ dữ liệu (Realtime)');
+                    }finally{
+                        this.applyingRemote = false;
+                    }
+                }, err=>{
+                    console.warn('Realtime sync error', err);
+                });
+            console.info('SyncModule started');
+        }catch(e){
+            console.warn('SyncModule failed to start', e);
+        }
+    },
+    stop(){
+        if(this.unsubscribe) this.unsubscribe();
+        this.unsubscribe = null;
+    }
+};
+
+// scheduleSave: debounce wrapper to auto-save after edits
+StorageModule.scheduleTimer = null;
+StorageModule.scheduleSave = function(){
+    // don't auto-save while applying remote update
+    if(window.SyncModule && window.SyncModule.applyingRemote) return;
+    if(this.scheduleTimer) clearTimeout(this.scheduleTimer);
+    this.scheduleTimer = setTimeout(()=>{
+        this.save();
+    },1500);
+};
+
 const SaveStatusModule = {
 
     dirty: false,
@@ -787,6 +832,7 @@ const ScheduleModule = {
         SaveStatusModule.markDirty();
         UIModule.renderSchedule();
         AuthModule.updatePermission();
+        StorageModule.scheduleSave();
 
     },
 
@@ -800,6 +846,8 @@ const ScheduleModule = {
 
         UIModule.renderSchedule();
         AuthModule.updatePermission();
+        SaveStatusModule.markDirty();
+        StorageModule.scheduleSave();
 
     },
 
@@ -807,6 +855,7 @@ const ScheduleModule = {
 
         DataModule.schedules[index][key] = value.trim();
         SaveStatusModule.markDirty();
+        StorageModule.scheduleSave();
 
     }
 
@@ -842,6 +891,7 @@ const LeaveModule = {
         });
 
         SaveStatusModule.markDirty();
+        StorageModule.scheduleSave();
 
         document.getElementById('leaveReason').value = '';
 
@@ -861,6 +911,7 @@ const LeaveModule = {
         DataModule.leaves = DataModule.leaves.filter(item=>item.id !== id);
 
         SaveStatusModule.markDirty();
+        StorageModule.scheduleSave();
         UIModule.renderSchedule();
         AuthModule.updatePermission();
 
@@ -1174,6 +1225,11 @@ async function initApp(){
     AuthModule.checkLogin();
 
     SaveStatusModule.markSaved();
+
+    // start realtime sync if Firestore available
+    if(window.firestoreDB){
+        SyncModule.start();
+    }
 
 }
 
