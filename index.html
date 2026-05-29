@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Thời Khóa Biểu Firebase Realtime</title>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial;
+}
+
+body{
+    background:#f1f5f9;
+    padding:20px;
+}
+
+.hidden{
+    display:none;
+}
+
+/* LOGIN */
+
+.login-box{
+
+    width:350px;
+
+    margin:80px auto;
+
+    background:white;
+
+    padding:30px;
+
+    border-radius:15px;
+
+    box-shadow:0 5px 20px rgba(0,0,0,0.1);
+
+}
+
+.login-box h2{
+
+    text-align:center;
+
+    margin-bottom:20px;
+
+}
+
+input,select{
+
+    width:100%;
+
+    padding:10px;
+
+    margin-bottom:10px;
+
+    border:1px solid #ccc;
+
+    border-radius:8px;
+
+}
+
+button{
+
+    padding:10px 15px;
+
+    border:none;
+
+    border-radius:8px;
+
+    cursor:pointer;
+
+    color:white;
+
+    background:#2563eb;
+
+}
+
+button:hover{
+    opacity:0.9;
+}
+
+/* TOPBAR */
+
+.topbar{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    margin-bottom:20px;
+
+}
+
+.topbar h1{
+    color:#1e3a8a;
+}
+
+.admin-tag{
+
+    background:#dc2626;
+
+    color:white;
+
+    padding:6px 12px;
+
+    border-radius:20px;
+
+}
+
+.viewer-tag{
+
+    background:#16a34a;
+
+    color:white;
+
+    padding:6px 12px;
+
+    border-radius:20px;
+
+}
+
+/* TABLE */
+
+.table-wrap{
+    overflow:auto;
+}
+
+table{
+
+    width:100%;
+
+    border-collapse:collapse;
+
+    background:white;
+
+    box-shadow:0 5px 15px rgba(0,0,0,0.08);
+
+}
+
+th,td{
+
+    border:1px solid #ddd;
+
+    min-width:130px;
+
+    height:120px;
+
+    vertical-align:top;
+
+    padding:5px;
+
+}
+
+th{
+
+    background:#dbeafe;
+
+}
+
+.week-col{
+
+    background:#f8fafc;
+
+    font-weight:bold;
+
+    text-align:center;
+
+}
+
+/* TASK */
+
+.task{
+
+    padding:8px;
+
+    border-radius:8px;
+
+    color:white;
+
+    margin-bottom:5px;
+
+    cursor:grab;
+
+    user-select:none;
+
+    font-weight:bold;
+
+    text-align:center;
+
+}
+
+.red{background:#ef4444;}
+.blue{background:#3b82f6;}
+.green{background:#22c55e;}
+.orange{background:#f59e0b;}
+.purple{background:#7e22ce;}
+.teal{background:#14b8a6;}
+
+.add-box{
+    margin-top:5px;
+}
+
+.small-btn{
+    width:100%;
+}
+
+.logout-btn{
+    background:#111827;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- LOGIN -->
+
+<div id="loginPage" class="login-box">
+
+    <h2>Đăng Nhập</h2>
+
+    <input
+        type="email"
+        id="email"
+        placeholder="Email">
+
+    <input
+        type="password"
+        id="password"
+        placeholder="Mật khẩu">
+
+    <button onclick="login()">
+        Đăng nhập
+    </button>
+
+    <div style="margin-top:20px;color:gray;line-height:1.6">
+
+        <b>Admin:</b><br>
+
+        admin@gmail.com<br>
+        123456
+
+        <br><br>
+
+        <b>Viewer:</b><br>
+
+        viewer@gmail.com<br>
+        111111
+
+    </div>
+
+</div>
+
+<!-- APP -->
+
+<div id="app" class="hidden">
+
+    <div class="topbar">
+
+        <h1>THỜI KHÓA BIỂU</h1>
+
+        <div style="display:flex;gap:10px;align-items:center">
+
+            <div id="roleTag"></div>
+
+            <button
+                class="logout-btn"
+                onclick="logout()">
+
+                Đăng xuất
+
+            </button>
+
+        </div>
+
+    </div>
+
+    <div class="table-wrap">
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>Tuần</th>
+                    <th>HS</th>
+                    <th>MD</th>
+                    <th>CTM</th>
+                    <th>TN</th>
+                    <th>PLM</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody id="scheduleBody"></tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+<!-- FIREBASE -->
+
+<script type="module">
+
+/* =========================
+   IMPORT
+========================= */
+
+import { initializeApp }
+
+from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+
+import {
+
+    getAuth,
+
+    signInWithEmailAndPassword,
+
+    onAuthStateChanged,
+
+    signOut
+
+}
+
+from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+
+import {
+
+    getFirestore,
+
+    doc,
+
+    setDoc,
+
+    onSnapshot
+
+}
+
+from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+import {
+
+    getAnalytics
+
+}
+
+from "https://www.gstatic.com/firebasejs/12.14.0/firebase-analytics.js";
+
+/* =========================
+   FIREBASE CONFIG
+========================= */
+
+const firebaseConfig = {
+
+    apiKey: "AIzaSyC-R1iGyb_YkRRTR3J2R2EqTPGLf09_Bqg",
+
+    authDomain: "lab1-fac84.firebaseapp.com",
+
+    projectId: "lab1-fac84",
+
+    storageBucket: "lab1-fac84.firebasestorage.app",
+
+    messagingSenderId: "18384394433",
+
+    appId: "1:18384394433:web:386b8d026cf817f19e5c40",
+
+    measurementId: "G-H3N4YLMZPP"
+
+};
+
+/* =========================
+   INIT
+========================= */
+
+const app = initializeApp(firebaseConfig);
+
+const analytics = getAnalytics(app);
+
+const auth = getAuth(app);
+
+const db = getFirestore(app);
+
+/* =========================
+   DEFAULT DATA
+========================= */
+
+const defaultData = [
+
+{
+
+week:"Tuần 1",
+
+HS:{name:"Toàn",color:"purple"},
+
+MD:{name:"Thành",color:"blue"},
+
+CTM:{name:"Dũng",color:"red"},
+
+TN:{name:"V.Anh",color:"orange"},
+
+PLM:{name:"Nga",color:"green"}
+
+},
+
+{
+
+week:"Tuần 2",
+
+HS:{name:"Nga",color:"green"},
+
+MD:{name:"Hiệp",color:"red"},
+
+CTM:{name:"Toàn",color:"purple"},
+
+TN:{name:"Thành",color:"blue"},
+
+PLM:{name:"Dũng",color:"orange"}
+
+}
+
+];
+
+/* =========================
+   GLOBAL
+========================= */
+
+let currentRole = "viewer";
+
+let dragged = null;
+
+/* =========================
+   LOGIN
+========================= */
+
+window.login = async function(){
+
+    const email =
+        document.getElementById("email").value;
+
+    const password =
+        document.getElementById("password").value;
+
+    try{
+
+        await signInWithEmailAndPassword(
+
+            auth,
+            email,
+            password
+
+        );
+
+    }catch(err){
+
+        alert(err.message);
+
+    }
+
+}
+
+/* =========================
+   LOGOUT
+========================= */
+
+window.logout = async function(){
+
+    await signOut(auth);
+
+}
+
+/* =========================
+   AUTH STATE
+========================= */
+
+onAuthStateChanged(auth,(user)=>{
+
+    if(user){
+
+        document
+        .getElementById("loginPage")
+        .classList.add("hidden");
+
+        document
+        .getElementById("app")
+        .classList.remove("hidden");
+
+        if(user.email === "admin@gmail.com"){
+
+            currentRole = "admin";
+
+            document
+            .getElementById("roleTag")
+            .innerHTML = `
+                <div class="admin-tag">
+                    ADMIN
+                </div>
+            `;
+
+        }else{
+
+            currentRole = "viewer";
+
+            document
+            .getElementById("roleTag")
+            .innerHTML = `
+                <div class="viewer-tag">
+                    VIEW ONLY
+                </div>
+            `;
+
+        }
+
+        startRealtime();
+
+    }else{
+
+        document
+        .getElementById("loginPage")
+        .classList.remove("hidden");
+
+        document
+        .getElementById("app")
+        .classList.add("hidden");
+
+    }
+
+});
+
+/* =========================
+   REALTIME LISTENER
+========================= */
+
+function startRealtime(){
+
+    onSnapshot(
+
+        doc(db,"schedule","main"),
+
+        async(snapshot)=>{
+
+            if(!snapshot.exists()){
+
+                await setDoc(
+
+                    doc(db,"schedule","main"),
+
+                    {data:defaultData}
+
+                );
+
+                return;
+            }
+
+            renderTable(snapshot.data().data);
+
+        }
+
+    );
+
+}
+
+/* =========================
+   RENDER TABLE
+========================= */
+
+function renderTable(data){
+
+    const body =
+        document.getElementById("scheduleBody");
+
+    body.innerHTML = "";
+
+    data.forEach((row,rowIndex)=>{
+
+        const tr =
+            document.createElement("tr");
+
+        tr.innerHTML += `
+            <td class="week-col">
+                ${row.week}
+            </td>
+        `;
+
+        ["HS","MD","CTM","TN","PLM"]
+        .forEach((col)=>{
+
+            const td =
+                document.createElement("td");
+
+            const item = row[col];
+
+            /* DRAG DROP */
+
+            if(currentRole === "admin"){
+
+                td.addEventListener(
+                    "dragover",
+                    e=>e.preventDefault()
+                );
+
+                td.addEventListener(
+                    "drop",
+                    ()=>drop(td)
+                );
+
+            }
+
+            /* TASK */
+
+            if(item && item.name){
+
+                const task =
+                    document.createElement("div");
+
+                task.className =
+                    `task ${item.color}`;
+
+                task.innerText =
+                    item.name;
+
+                if(currentRole === "admin"){
+
+                    task.draggable = true;
+
+                    task.addEventListener(
+                        "dragstart",
+                        ()=>{
+                            dragged = task;
+                        }
+                    );
+
+                }
+
+                td.appendChild(task);
+
+            }
+
+            /* ADMIN ADD */
+
+            if(currentRole === "admin"){
+
+                const addBox =
+                    document.createElement("div");
+
+                addBox.className =
+                    "add-box";
+
+                addBox.innerHTML = `
+
+                    <input
+                        type="text"
+                        placeholder="Tên">
+
+                    <select>
+
+                        <option value="red">
+                            Đỏ
+                        </option>
+
+                        <option value="blue">
+                            Xanh
+                        </option>
+
+                        <option value="green">
+                            Lá
+                        </option>
+
+                        <option value="orange">
+                            Cam
+                        </option>
+
+                        <option value="purple">
+                            Tím
+                        </option>
+
+                        <option value="teal">
+                            Ngọc
+                        </option>
+
+                    </select>
+
+                    <button class="small-btn">
+
+                        Thêm
+
+                    </button>
+
+                `;
+
+                addBox
+                .querySelector("button")
+                .onclick = async()=>{
+
+                    const name =
+                        addBox
+                        .querySelector("input")
+                        .value;
+
+                    const color =
+                        addBox
+                        .querySelector("select")
+                        .value;
+
+                    if(name.trim()==="") return;
+
+                    data[rowIndex][col] = {
+
+                        name,
+                        color
+
+                    };
+
+                    await saveData(data);
+
+                };
+
+                td.appendChild(addBox);
+
+            }
+
+            tr.appendChild(td);
+
+        });
+
+        body.appendChild(tr);
+
+    });
+
+}
+
+/* =========================
+   DRAG DROP
+========================= */
+
+async function drop(td){
+
+    if(!dragged) return;
+
+    const target =
+        td.querySelector(".task");
+
+    if(target){
+
+        const tempText =
+            target.innerText;
+
+        const tempClass =
+            target.className;
+
+        target.innerText =
+            dragged.innerText;
+
+        target.className =
+            dragged.className;
+
+        dragged.innerText =
+            tempText;
+
+        dragged.className =
+            tempClass;
+
+    }
+
+    await syncUI();
+
+}
+
+/* =========================
+   SAVE FROM UI
+========================= */
+
+async function syncUI(){
+
+    const rows = [];
+
+    document
+    .querySelectorAll("#scheduleBody tr")
+    .forEach((tr,rowIndex)=>{
+
+        const obj = {
+
+            week:`Tuần ${rowIndex+1}`
+
+        };
+
+        const cols =
+            ["HS","MD","CTM","TN","PLM"];
+
+        tr.querySelectorAll("td")
+        .forEach((td,index)=>{
+
+            if(index===0) return;
+
+            const task =
+                td.querySelector(".task");
+
+            let color = "blue";
+
+            if(task){
+
+                ["red","blue","green","orange","purple","teal"]
+                .forEach(c=>{
+
+                    if(task.classList.contains(c))
+                        color = c;
+
+                });
+
+                obj[cols[index-1]] = {
+
+                    name:task.innerText,
+
+                    color
+
+                };
+
+            }
+
+        });
+
+        rows.push(obj);
+
+    });
+
+    await saveData(rows);
+
+}
+
+/* =========================
+   SAVE FIRESTORE
+========================= */
+
+async function saveData(data){
+
+    await setDoc(
+
+        doc(db,"schedule","main"),
+
+        {data}
+
+    );
+
+}
+
+</script>
+
+</body>
+</html>
