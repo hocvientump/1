@@ -612,6 +612,9 @@ const AuthModule = {
                 role: role
             };
 
+            // Reload page after successful login to synchronize state
+            location.reload();
+
             document
                 .getElementById('loginModal')
                 .classList.add('hidden');
