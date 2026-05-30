@@ -129,6 +129,64 @@ body{
     min-height:110px;
 }
 
+.leave-summary-card-wrapper{
+    margin-top:16px;
+}
+
+.leave-summary-card{
+    background:white;
+    border:1px solid #e2e8f0;
+    border-radius:18px;
+    padding:16px;
+    margin-bottom:14px;
+    box-shadow:0 10px 24px rgba(15,23,42,0.08);
+}
+
+.leave-summary-card-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:14px;
+    gap:12px;
+}
+
+.leave-summary-card-header b{
+    font-size:1rem;
+}
+
+.leave-summary-card-day{
+    margin-bottom:10px;
+    padding:12px 0;
+    border-bottom:1px solid #e2e8f0;
+}
+
+.leave-summary-card-day:last-child{
+    border-bottom:none;
+    margin-bottom:0;
+}
+
+.leave-summary-card-day strong{
+    display:block;
+    margin-bottom:6px;
+}
+
+.leave-summary-card-day small{
+    color:#475569;
+}
+
+.leave-summary-badge{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:42px;
+    height:26px;
+    border-radius:999px;
+    background:#e2e8f0;
+    color:#0f172a;
+    font-size:.82rem;
+    padding:0 10px;
+}
+
 .leave-summary-item{
     background:#e2e8f0;
     border-radius:12px;
@@ -143,6 +201,45 @@ body{
 
 .leave-summary-item small{
     color:#475569;
+}
+
+body.desktop .main{
+    margin-left:220px;
+    padding:16px;
+}
+
+body.desktop .sidebar{
+    width:220px;
+}
+
+body.desktop .card-box{
+    padding:16px;
+}
+
+body.desktop .dashboard-grid,
+body.desktop .work-time-list{
+    gap:14px;
+}
+
+body.desktop .metric-card{
+    padding:18px;
+    min-height:130px;
+}
+
+body.desktop .table th,
+body.desktop .table td,
+body.desktop .leave-summary-table th,
+body.desktop .leave-summary-table td{
+    padding:10px;
+}
+
+body.desktop .leave-summary-item{
+    padding:6px 8px;
+    margin-bottom:6px;
+}
+
+body.desktop .leave-summary-card-wrapper{
+    display:none;
 }
 
 .save-status{
@@ -300,9 +397,113 @@ body{
 
 }
 
+body.mobile .sidebar{
+    position:fixed;
+    top:0;
+    left:-100%;
+    width:30%;
+    max-width:280px;
+    height:100vh;
+    z-index:100000;
+    transition:left .25s ease;
+    box-shadow:6px 0 24px rgba(0,0,0,0.15);
+}
+
+body.mobile .sidebar.open{
+    left:0;
+}
+
+body.mobile .main{
+    margin-left:0;
+    padding:14px;
+}
+
+body.mobile .mobile-menu-button{
+    display:flex;
+    position:fixed;
+    top:14px;
+    left:14px;
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    border:1px solid rgba(15,23,42,0.08);
+    background:#ffffff;
+    align-items:center;
+    justify-content:center;
+    z-index:100001;
+    box-shadow:0 10px 20px rgba(15,23,42,0.18);
+}
+
+body.mobile .mobile-menu-button i{
+    font-size:1.1rem;
+    color:#0f172a;
+}
+
+body.mobile .mobile-nav-overlay{
+    display:block;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.28);
+    z-index:100000;
+}
+
+body.mobile .mobile-nav-overlay.hidden{
+    display:none;
+}
+
+body.mobile .sidebar a{
+    padding:12px 14px;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+}
+
+body.mobile .dashboard-grid,
+body.mobile .work-time-list{
+    grid-template-columns:1fr;
+}
+
+body.mobile #scheduleTable,
+body.mobile .leave-summary-table{
+    font-size:0.85rem;
+}
+
+body.mobile .sidebar a,
+body.mobile .mobile-menu-button i,
+body.mobile .leave-summary-card-header b,
+body.mobile .leave-summary-card-day strong,
+body.mobile .leave-summary-card-day small,
+body.mobile .card-box h4,
+body.mobile .metric-card h5,
+body.mobile .metric-value,
+body.mobile .work-time-card b,
+body.mobile .work-time-card .details{
+    font-size:0.9rem;
+}
+
+body.mobile .metric-value{
+    font-size:2rem;
+}
+
+body.mobile .leave-summary-card{
+    padding:14px;
+}
+
+body.mobile .leave-summary-card-day{
+    padding:10px 0;
+}
+
+body.mobile .login-card{
+    width:92%;
+    max-width:420px;
+}
+
 </style>
 </head>
 <body>
+
+<button id="mobileMenuToggle" class="mobile-menu-button hidden" onclick="MobileNavModule.toggle()">
+    <i class="bi bi-list"></i>
+</button>
+<div id="mobileNavOverlay" class="mobile-nav-overlay hidden" onclick="MobileNavModule.close()"></div>
 
 <div id="loginModal">
 
@@ -479,7 +680,6 @@ viewer@gmail.com / 111111
 <tbody id="scheduleBody"></tbody>
 
 </table>
-
 </div>
 
 </div>
@@ -508,6 +708,7 @@ viewer@gmail.com / 111111
             </thead>
             <tbody id="leaveSummaryBody"></tbody>
         </table>
+        <div id="leaveSummaryCards" class="leave-summary-card-wrapper"></div>
     </div>
 </div>
 
@@ -667,6 +868,7 @@ const AuthModule = {
 
             });
 
+        UIModule.renderSchedule();
     },
 
     async logout(){
@@ -962,8 +1164,72 @@ async confirmLeave(){
         });
 
         const summaryBody = document.getElementById('leaveSummaryBody');
-        if(!summaryBody) return;
+        const cardsContainer = document.getElementById('leaveSummaryCards');
+        const tableElement = document.querySelector('.leave-summary-table');
 
+        if(DeviceModule.isMobile()){
+            if(summaryBody) summaryBody.innerHTML = '';
+            if(tableElement) tableElement.classList.add('hidden');
+            if(!cardsContainer) return;
+
+            cardsContainer.innerHTML = '';
+            cardsContainer.classList.remove('hidden');
+
+            shifts.forEach(shift=>{
+                const itemsForShift = dayNames.flatMap(day =>
+                    matrix[shift][day].map(item => ({ day, item }))
+                );
+
+                const cardItems = dayNames.map(day => {
+                    const items = matrix[shift][day];
+                    if(items.length){
+                        return `
+                            <div class="leave-summary-card-day">
+                                <strong>${day}</strong>
+                                ${items.map(item => {
+                                    const deleteBtn = AuthModule.currentUser?.role === 'admin'
+                                        ? `<button class="btn btn-sm btn-danger mt-2 admin-only" onclick="LeaveModule.removeLeave(${item.id})">Xóa</button>`
+                                        : '';
+                                    return `
+                                        <div>
+                                            <span class="leave-summary-badge">${item.name}</span>
+                                            <div><small>${item.reason || 'Nghỉ phép'}</small></div>
+                                            ${deleteBtn}
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        `;
+                    }
+                    return `
+                        <div class="leave-summary-card-day">
+                            <strong>${day}</strong>
+                            <small class="text-muted">Không có nghỉ phép</small>
+                        </div>
+                    `;
+                }).join('');
+
+                cardsContainer.innerHTML += `
+                    <div class="leave-summary-card">
+                        <div class="leave-summary-card-header">
+                            <b>Buổi ${shift}</b>
+                            <span>${itemsForShift.length} lượt nghỉ</span>
+                        </div>
+                        ${cardItems}
+                    </div>
+                `;
+            });
+
+            return;
+        }
+
+        if(cardsContainer){
+            cardsContainer.classList.add('hidden');
+            cardsContainer.innerHTML = '';
+        }
+        if(tableElement) tableElement.classList.remove('hidden');
+
+        if(!summaryBody) return;
         summaryBody.innerHTML = '';
         shifts.forEach(shift=>{
             const canEdit = AuthModule.currentUser?.role === 'admin';
@@ -1011,53 +1277,41 @@ const UIModule = {
     renderSchedule(){
 
         const body = document.getElementById('scheduleBody');
+        const tableHead = document.querySelector('#scheduleTable thead tr');
+        const editable = AuthModule.currentUser?.role === 'admin';
+
+        if(tableHead){
+            tableHead.innerHTML = `
+                <th>Tuần</th>
+                <th>Hoá sinh + ĐGĐ </th>
+                <th>Miễn dịch + Đông Máu</th>
+                <th>CTM + Test + HbA1C</th>
+                <th>NT + Nhuộm soi + Máu lắng</th>
+                <th>PLM1</th>
+                <th>PLM2</th>
+                ${editable ? '<th class="admin-only">Xóa</th>' : ''}
+            `;
+        }
 
         body.innerHTML = '';
-
-        const editable = AuthModule.currentUser?.role === 'admin';
 
         DataModule.schedules.forEach((item,index)=>{
 
             body.innerHTML += `
-
-            <tr>
-
-            <td>${item.week}</td>
-
-            <td contenteditable="${editable ? 'true' : 'false'}" onblur="ScheduleModule.updateCell(${index},'HS',this.innerText)">
-            ${item.HS}
-            </td>
-
-            <td contenteditable="${editable ? 'true' : 'false'}" onblur="ScheduleModule.updateCell(${index},'MD',this.innerText)">
-            ${item.MD}
-            </td>
-
-            <td contenteditable="${editable ? 'true' : 'false'}" onblur="ScheduleModule.updateCell(${index},'CTM',this.innerText)">
-            ${item.CTM}
-            </td>
-
-            <td contenteditable="${editable ? 'true' : 'false'}" onblur="ScheduleModule.updateCell(${index},'NT',this.innerText)">
-            ${item.NT}
-            </td>
-
-            <td contenteditable="${editable ? 'true' : 'false'}" onblur="ScheduleModule.updateCell(${index},'PLM1',this.innerText)">
-            ${item.PLM1}
-            </td>
-
-            <td contenteditable="${editable ? 'true' : 'false'}" onblur="ScheduleModule.updateCell(${index},'PLM2',this.innerText)">
-            ${item.PLM2}
-            </td>
-
-            <td class="admin-only">
-
-            <button class="btn btn-danger btn-sm" onclick="ScheduleModule.deleteWeek(${index})">
-            X
-            </button>
-
-            </td>
-
-            </tr>
-
+                <tr>
+                    <td>${item.week}</td>
+                    <td contenteditable="${editable ? 'true' : 'false'}" onblur="ScheduleModule.updateCell(${index},'HS',this.innerText)">${item.HS}</td>
+                    <td contenteditable="${editable ? 'true' : 'false'}" onblur="ScheduleModule.updateCell(${index},'MD',this.innerText)">${item.MD}</td>
+                    <td contenteditable="${editable ? 'true' : 'false'}" onblur="ScheduleModule.updateCell(${index},'CTM',this.innerText)">${item.CTM}</td>
+                    <td contenteditable="${editable ? 'true' : 'false'}" onblur="ScheduleModule.updateCell(${index},'NT',this.innerText)">${item.NT}</td>
+                    <td contenteditable="${editable ? 'true' : 'false'}" onblur="ScheduleModule.updateCell(${index},'PLM1',this.innerText)">${item.PLM1}</td>
+                    <td contenteditable="${editable ? 'true' : 'false'}" onblur="ScheduleModule.updateCell(${index},'PLM2',this.innerText)">${item.PLM2}</td>
+                    ${editable ? `
+                        <td class="admin-only">
+                            <button class="btn btn-danger btn-sm" onclick="ScheduleModule.deleteWeek(${index})">X</button>
+                        </td>
+                    ` : ''}
+                </tr>
             `;
 
         });
@@ -1211,6 +1465,49 @@ const DashboardModule = {
 
 };
 
+const DeviceModule = {
+    type:'desktop',
+    detect(){
+        const ua = navigator.userAgent || navigator.vendor || window.opera;
+        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+        this.type = mobileRegex.test(ua) ? 'mobile' : 'desktop';
+        document.body.classList.add(this.type);
+    },
+    isMobile(){
+        return this.type === 'mobile';
+    },
+    isDesktop(){
+        return this.type === 'desktop';
+    }
+};
+
+const MobileNavModule = {
+    open:false,
+    toggle(){
+        if(!DeviceModule.isMobile()) return;
+        this.open ? this.close() : this.openSidebar();
+    },
+    openSidebar(){
+        document.querySelector('.sidebar').classList.add('open');
+        document.getElementById('mobileNavOverlay').classList.remove('hidden');
+        this.open = true;
+    },
+    close(){
+        document.querySelector('.sidebar').classList.remove('open');
+        document.getElementById('mobileNavOverlay').classList.add('hidden');
+        this.open = false;
+    },
+    update(){
+        const button = document.getElementById('mobileMenuToggle');
+        if(DeviceModule.isMobile()){
+            button.classList.remove('hidden');
+        } else {
+            button.classList.add('hidden');
+            this.close();
+        }
+    }
+};
+
 const RealtimeModule = {
 
     startClock(){
@@ -1227,6 +1524,8 @@ const RealtimeModule = {
 };
 
 async function initApp(){
+    DeviceModule.detect();
+    MobileNavModule.update();
     await StorageModule.load();
 
     UIModule.renderSchedule();
