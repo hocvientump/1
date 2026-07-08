@@ -780,6 +780,22 @@ const WorkTimeModule = {
         {
             name:'V.Anh',
             start:'2026-05-11'
+        },
+        {
+            name:'Lợi',
+            start:'2026-05-27'
+        },
+        {
+            name:'Trúc',
+            start:'2026-07-03'
+        },
+        {
+            name:'Tâm',
+            start:'2026-07-03'
+        },
+        {
+            name:'Long',
+            start:'2026-07-07'
         }
     ],
 
